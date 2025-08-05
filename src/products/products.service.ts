@@ -1,7 +1,7 @@
 import { Injectable, ConflictException, NotFoundException } from "@nestjs/common"
-import type { Repository } from "typeorm"
+import { Repository } from "typeorm"
 import { Product } from "./entities/product.entity"
-import type { CreateProductDto } from "./dto/create-product.dto"
+import { CreateProductDto } from "./dto/create-product.dto"
 import { InjectRepository } from "@nestjs/typeorm"
 
 @Injectable()

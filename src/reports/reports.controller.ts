@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from "@nestjs/common"
+import { Controller, Get, UseGuards } from "@nestjs/common"
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger"
 import { ReportsService } from "./reports.service"
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard"
@@ -16,13 +16,13 @@ export class ReportsController {
 
   @Get("sales")
   @ApiOperation({ summary: "Get sales report" })
-  getSalesReport(@Query('startDate') startDate: string, @Query('endDate') endDate: string) {
+  getSalesReport(startDate: string, endDate: string) {
     return this.reportsService.getSalesReport(new Date(startDate), new Date(endDate))
   }
 
   @Get("purchases")
   @ApiOperation({ summary: "Get purchase report" })
-  getPurchaseReport(@Query('startDate') startDate: string, @Query('endDate') endDate: string) {
+  getPurchaseReport(startDate: string, endDate: string) {
     return this.reportsService.getPurchaseReport(new Date(startDate), new Date(endDate))
   }
 
@@ -34,7 +34,25 @@ export class ReportsController {
 
   @Get("profit-loss")
   @ApiOperation({ summary: "Get profit & loss statement" })
-  getProfitLossStatement(@Query('startDate') startDate: string, @Query('endDate') endDate: string) {
+  getProfitLossStatement(startDate: string, endDate: string) {
     return this.reportsService.getProfitLossStatement(new Date(startDate), new Date(endDate))
+  }
+
+  @Get("sale-returns")
+  @ApiOperation({ summary: "Get sale returns report" })
+  getSaleReturnsReport(startDate: string, endDate: string) {
+    return this.reportsService.getSaleReturnsReport(new Date(startDate), new Date(endDate))
+  }
+
+  @Get("purchase-returns")
+  @ApiOperation({ summary: "Get purchase returns report" })
+  getPurchaseReturnsReport(startDate: string, endDate: string) {
+    return this.reportsService.getPurchaseReturnsReport(new Date(startDate), new Date(endDate))
+  }
+
+  @Get("returns-overview")
+  @ApiOperation({ summary: "Get returns overview report" })
+  getReturnsOverview(startDate: string, endDate: string) {
+    return this.reportsService.getReturnsOverview(new Date(startDate), new Date(endDate))
   }
 }

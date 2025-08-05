@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from "@nestjs/common"
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from "@nestjs/swagger"
 import { ProductsService } from "./products.service"
-import type { CreateProductDto } from "./dto/create-product.dto"
+import { CreateProductDto } from "./dto/create-product.dto"
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard"
 import { RolesGuard } from "../auth/guards/roles.guard"
 import { Roles } from "../auth/decorators/roles.decorator"
@@ -17,7 +17,7 @@ export class ProductsController {
   @Post()
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: "Create a new product" })
-  create(createProductDto: CreateProductDto) {
+  create(@Body() createProductDto: CreateProductDto) {
     return this.productsService.create(createProductDto)
   }
 
@@ -43,7 +43,7 @@ export class ProductsController {
   @Patch(":id")
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: "Update product" })
-  update(@Param('id') id: string, updateProductDto: CreateProductDto) {
+  update(@Param('id') id: string,@Body() updateProductDto: CreateProductDto) {
     return this.productsService.update(id, updateProductDto)
   }
 

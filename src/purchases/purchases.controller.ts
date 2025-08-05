@@ -1,7 +1,7 @@
-import { Controller, Get, Post, Param, Patch, UseGuards, Request } from "@nestjs/common"
+import { Controller, Get, Post, Param, Patch, UseGuards, Request, Body } from "@nestjs/common"
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger"
 import { PurchasesService } from "./purchases.service"
-import type { CreatePurchaseDto } from "./dto/create-purchase.dto"
+import { CreatePurchaseDto } from "./dto/create-purchase.dto"
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard"
 import { RolesGuard } from "../auth/guards/roles.guard"
 import { Roles } from "../auth/decorators/roles.decorator"
@@ -17,7 +17,7 @@ export class PurchasesController {
   @Post()
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: "Create a new purchase order" })
-  create(createPurchaseDto: CreatePurchaseDto, @Request() req) {
+  create(@Body() createPurchaseDto: CreatePurchaseDto, @Request() req) {
     return this.purchasesService.create(createPurchaseDto, req.user.userId)
   }
 

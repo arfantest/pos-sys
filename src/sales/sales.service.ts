@@ -1,9 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common"
-import type { Repository } from "typeorm"
+import { Repository } from "typeorm"
 import { InjectRepository } from "@nestjs/typeorm"
 import { Sale, SaleStatus } from "./entities/sale.entity"
 import { SaleItem } from "./entities/sale-item.entity"
-import type { CreateSaleDto } from "./dto/create-sale.dto"
+import { CreateSaleDto } from "./dto/create-sale.dto"
 import { ProductsService } from "../products/products.service"
 
 @Injectable()

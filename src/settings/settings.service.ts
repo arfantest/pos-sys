@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common"
-import type { Repository } from "typeorm"
+import { Repository } from "typeorm"
 import { CompanySetting } from "./entities/company-setting.entity"
-import type { UpdateCompanySettingDto } from "./dto/update-company-setting.dto"
+import { UpdateCompanySettingDto } from "./dto/update-company-setting.dto"
 import { InjectRepository } from "@nestjs/typeorm"
 
 @Injectable()

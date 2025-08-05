@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common"
-import { Between, type Repository } from "typeorm"
+import { Between, Repository } from "typeorm"
 import { JournalEntry } from "./entities/journal-entry.entity"
 import { JournalEntryLine } from "./entities/journal-entry-line.entity"
 import { InjectRepository } from "@nestjs/typeorm"

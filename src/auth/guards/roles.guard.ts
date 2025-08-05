@@ -1,6 +1,6 @@
-import { Injectable, type CanActivate, type ExecutionContext } from "@nestjs/common"
+import { Injectable, CanActivate, ExecutionContext } from "@nestjs/common"
 import { Reflector } from "@nestjs/core"
-import type { UserRole } from "../../users/entities/user.entity"
+import { UserRole } from "../../users/entities/user.entity"
 import { ROLES_KEY } from "../decorators/roles.decorator"
 
 @Injectable()
@@ -16,6 +16,9 @@ export class RolesGuard implements CanActivate {
       return true
     }
     const { user } = context.switchToHttp().getRequest()
-    return requiredRoles.some((role) => user.role?.includes(role))
+    
+    // Fix: Handle both array and single role
+    const userRoles = Array.isArray(user.role) ? user.role : [user.role]
+    return requiredRoles.some((role) => userRoles.includes(role))
   }
 }

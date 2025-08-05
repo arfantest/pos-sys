@@ -1,22 +1,26 @@
 import { Injectable } from "@nestjs/common"
-import { type Repository, Between } from "typeorm"
+import { InjectRepository } from "@nestjs/typeorm"
+import { Repository, Between } from "typeorm"
 import { Sale, SaleStatus } from "../sales/entities/sale.entity"
 import { Purchase } from "../purchases/entities/purchase.entity"
 import { Product } from "../products/entities/product.entity"
-import { InjectRepository } from "@nestjs/typeorm"
+import { SaleReturn } from "../sales/entities/sale-return.entity"
+import { PurchaseReturn } from "../purchases/entities/purchase-return.entity"
 
 @Injectable()
 export class ReportsService {
   constructor(
     @InjectRepository(Sale)
-    private readonly salesRepository: Repository<Sale>,
-
+    private salesRepository: Repository<Sale>,
     @InjectRepository(Purchase)
-    private readonly purchasesRepository: Repository<Purchase>,
-
+    private purchasesRepository: Repository<Purchase>,
     @InjectRepository(Product)
-    private readonly productsRepository: Repository<Product>,
-  ) { }
+    private productsRepository: Repository<Product>,
+    @InjectRepository(SaleReturn)
+    private saleReturnsRepository: Repository<SaleReturn>,
+    @InjectRepository(PurchaseReturn)
+    private purchaseReturnsRepository: Repository<PurchaseReturn>,
+  ) {}
 
   async getSalesReport(startDate: Date, endDate: Date) {
     const sales = await this.salesRepository.find({
@@ -107,6 +111,70 @@ export class ReportsService {
       costOfGoodsSold,
       grossProfit,
       grossProfitMargin: revenue > 0 ? (grossProfit / revenue) * 100 : 0,
+    }
+  }
+
+  async getSaleReturnsReport(startDate: Date, endDate: Date) {
+    const saleReturns = await this.saleReturnsRepository.find({
+      where: {
+        createdAt: Between(startDate, endDate),
+      },
+      relations: ["items", "items.product", "originalSale", "processedBy", "approvedBy"],
+      order: { createdAt: "DESC" },
+    })
+
+    const totalReturns = saleReturns.reduce((sum, ret) => sum + Number(ret.totalAmount), 0)
+    const totalRefunds = saleReturns.reduce((sum, ret) => sum + Number(ret.refundAmount), 0)
+    const approvedReturns = saleReturns.filter((ret) => ret.status === "approved" || ret.status === "completed")
+
+    return {
+      saleReturns,
+      summary: {
+        totalReturns,
+        totalRefunds,
+        returnsCount: saleReturns.length,
+        approvedCount: approvedReturns.length,
+        pendingCount: saleReturns.filter((ret) => ret.status === "pending").length,
+        rejectedCount: saleReturns.filter((ret) => ret.status === "rejected").length,
+      },
+    }
+  }
+
+  async getPurchaseReturnsReport(startDate: Date, endDate: Date) {
+    const purchaseReturns = await this.purchaseReturnsRepository.find({
+      where: {
+        createdAt: Between(startDate, endDate),
+      },
+      relations: ["items", "items.product", "originalPurchase", "createdBy", "approvedBy"],
+      order: { createdAt: "DESC" },
+    })
+
+    const totalReturns = purchaseReturns.reduce((sum, ret) => sum + Number(ret.totalAmount), 0)
+    const totalCredits = purchaseReturns.reduce((sum, ret) => sum + Number(ret.creditAmount), 0)
+    const approvedReturns = purchaseReturns.filter((ret) => ret.status === "approved" || ret.status === "completed")
+
+    return {
+      purchaseReturns,
+      summary: {
+        totalReturns,
+        totalCredits,
+        returnsCount: purchaseReturns.length,
+        approvedCount: approvedReturns.length,
+        pendingCount: purchaseReturns.filter((ret) => ret.status === "pending").length,
+        rejectedCount: purchaseReturns.filter((ret) => ret.status === "rejected").length,
+      },
+    }
+  }
+
+  async getReturnsOverview(startDate: Date, endDate: Date) {
+    const saleReturnsData = await this.getSaleReturnsReport(startDate, endDate)
+    const purchaseReturnsData = await this.getPurchaseReturnsReport(startDate, endDate)
+
+    return {
+      period: { startDate, endDate },
+      saleReturns: saleReturnsData.summary,
+      purchaseReturns: purchaseReturnsData.summary,
+      totalReturnValue: saleReturnsData.summary.totalReturns + purchaseReturnsData.summary.totalReturns,
     }
   }
 }

@@ -18,6 +18,15 @@ async function bootstrap() {
     }),
   )
 
+   // Enable CORS for frontend communication
+  app.enableCors({
+    origin: ["http://localhost:4200", "http://localhost:3000"],
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
+    credentials: true,
+  })
+
+  // app.setGlobalPrefix("api")
+
   // Swagger configuration
   const config = new DocumentBuilder()
     .setTitle("POS System API")
@@ -29,7 +38,8 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config)
   SwaggerModule.setup("api", app, document)
 
-  await app.listen(3000)
+  const port = process.env.PORT || 3000
+  await app.listen(port)
   console.log("POS Backend is running on: http://localhost:3000")
   console.log("Swagger docs available at: http://localhost:3000/api")
 }

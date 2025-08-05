@@ -7,16 +7,16 @@ import {
   UseGuards,
   ClassSerializerInterceptor,
   UseInterceptors,
+  Body,
 } from "@nestjs/common"
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger"
 import { UsersService } from "./users.service"
-import type { CreateUserDto } from "./dto/create-user.dto"
+import { CreateUserDto } from "./dto/create-user.dto"
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard"
 import { RolesGuard } from "../auth/guards/roles.guard"
 import { Roles } from "../auth/decorators/roles.decorator"
 import { UserRole } from "./entities/user.entity"
 
-@ApiTags("users")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @UseInterceptors(ClassSerializerInterceptor)
@@ -27,7 +27,7 @@ export class UsersController {
   @Post()
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: "Create a new user" })
-  create(createUserDto: CreateUserDto) {
+  create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto)
   }
 
