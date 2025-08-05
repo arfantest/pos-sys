@@ -15,6 +15,7 @@ import { ReportsModule } from './reports/reports.module';
 import { SettingsModule } from './settings/settings.module';
 import { SeedModule } from './database/seeds/seed.module';
 import { SeedService } from './database/seeds/seed.service';
+import { ExpensesModule } from './expenses/expenses.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { SeedService } from './database/seeds/seed.service';
     LedgerModule,
     ReportsModule,
     SettingsModule,
+    ExpensesModule,
     SeedModule
   ],
 })
