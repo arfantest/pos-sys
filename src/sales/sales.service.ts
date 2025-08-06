@@ -5,6 +5,8 @@ import { Sale, SaleStatus } from "./entities/sale.entity"
 import { SaleItem } from "./entities/sale-item.entity"
 import { CreateSaleDto } from "./dto/create-sale.dto"
 import { ProductsService } from "../products/products.service"
+import { AccountsService } from "../accounts/accounts.service"
+import { AccountType } from "src/accounts/entities/account.entity"
 
 @Injectable()
 export class SalesService {
@@ -15,72 +17,154 @@ export class SalesService {
     @InjectRepository(SaleItem)
     private readonly saleItemsRepository: Repository<SaleItem>,
 
-    private readonly productsService: ProductsService, // This should work now
-  ) {}
+    private readonly productsService: ProductsService,
+    private readonly accountsService: AccountsService,
+  ) { }
 
   async create(createSaleDto: CreateSaleDto, cashierId: string): Promise<Sale> {
-    // Calculate subtotal
-    let subtotal = 0
-    const saleItems = []
-
-    for (const item of createSaleDto.items) {
-      const product = await this.productsService.findOne(item.productId)
-
-      // Check stock availability
-      if (product.stock < item.quantity) {
-        throw new BadRequestException(`Insufficient stock for product ${product.name}`)
+    try {
+      // Validate account if provided
+      if (createSaleDto.accountId) {
+        const account = await this.accountsService.findOne(createSaleDto.accountId)
+        if (!account.isActive) {
+          throw new BadRequestException("Selected account is not active")
+        }
       }
 
-      const itemTotal = item.quantity * item.unitPrice
-      subtotal += itemTotal
+      // Calculate subtotal and validate products
+      let subtotal = 0
+      const saleItems = []
 
-      saleItems.push({
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        total: itemTotal,
+      for (const item of createSaleDto.items) {
+        const product = await this.productsService.findOne(item.productId)
+
+        // Check if product is active
+        if (!product.isActive) {
+          throw new BadRequestException(`Product ${product.name} is not active`)
+        }
+
+        // Check stock availability
+        if (product.stock < item.quantity) {
+          throw new BadRequestException(`Insufficient stock for product ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`)
+        }
+
+        const itemTotal = item.quantity * item.unitPrice
+        subtotal += itemTotal
+
+        saleItems.push({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          total: itemTotal,
+        })
+      }
+
+      const total = subtotal - createSaleDto.discount + createSaleDto.tax
+      const change = createSaleDto.paid - total
+
+      if (change < 0) {
+        throw new BadRequestException(`Insufficient payment amount. Required: ${total}, Paid: ${createSaleDto.paid}`)
+      }
+
+      // Generate invoice number
+      const invoiceNumber = await this.generateInvoiceNumber()
+
+      // Create sale
+      const sale = this.salesRepository.create({
+        invoiceNumber,
+        subtotal,
+        discount: createSaleDto.discount,
+        tax: createSaleDto.tax,
+        total,
+        paid: createSaleDto.paid,
+        change,
+        customerName: createSaleDto.customerName,
+        customerPhone: createSaleDto.customerPhone,
+        cashierId,
+        status: SaleStatus.COMPLETED,
       })
 
-      // Update product stock
-      await this.productsService.updateStock(item.productId, -item.quantity)
+      const savedSale = await this.salesRepository.save(sale)
+
+      // Create sale items and update product stock
+      for (const item of saleItems) {
+        const saleItem = this.saleItemsRepository.create({
+          ...item,
+          saleId: savedSale.id,
+        })
+        await this.saleItemsRepository.save(saleItem)
+
+        // Update product stock
+        await this.productsService.updateStock(item.productId, -item.quantity)
+      }
+
+      // Update account balance if account is selected
+      if (createSaleDto.accountId) {
+        await this.processAccountingEntries(createSaleDto, total, savedSale.id)
+      }
+
+      return this.findOne(savedSale.id)
+    } catch (error) {
+      console.error('Error creating sale:', error)
+      throw error
     }
+  }
+  private async processAccountingEntries(
+    createSaleDto: CreateSaleDto,
+    total: number,
+    saleId: string
+  ): Promise<void> {
+    const account = await this.accountsService.findOne(createSaleDto.accountId)
 
-    const total = subtotal - createSaleDto.discount + createSaleDto.tax
-    const change = createSaleDto.paid - total
+    try {
+      switch (account.type) {
+        case AccountType.ASSET:
+          // Debit Cash/Bank account for the amount paid
+          await this.accountsService.debitAccount(createSaleDto.accountId, createSaleDto.paid)
 
-    if (change < 0) {
-      throw new BadRequestException("Insufficient payment amount")
+          // If there's a change, we need to credit back the change amount
+          if (createSaleDto.paid > total) {
+            const change = createSaleDto.paid - total
+            await this.accountsService.creditAccount(createSaleDto.accountId, change)
+          }
+          break
+
+        case AccountType.INCOME:
+          // Credit Sales Revenue account for the total sale amount
+          await this.accountsService.creditAccount(createSaleDto.accountId, total)
+          break
+
+        case AccountType.EXPENSE:
+          // Debit Cost of Goods Sold account
+          let totalCost = 0
+          for (const item of createSaleDto.items) {
+            const product = await this.productsService.findOne(item.productId)
+            totalCost += (product.cost || 0) * item.quantity
+          }
+          await this.accountsService.debitAccount(createSaleDto.accountId, totalCost)
+          break
+
+        case AccountType.LIABILITY:
+          // Credit Customer Accounts Payable or similar
+          await this.accountsService.creditAccount(createSaleDto.accountId, total)
+          break
+
+        case AccountType.EQUITY:
+          // Credit Owner's Equity with net profit
+          const netProfit = total - createSaleDto.discount - createSaleDto.tax
+          await this.accountsService.creditAccount(createSaleDto.accountId, netProfit)
+          break
+
+        default:
+          throw new BadRequestException(`Account type ${account.type} is not supported for sales transactions`)
+      }
+
+      console.log(`Accounting entry processed for sale ${saleId}: ${account.type} account ${account.name} updated`)
+
+    } catch (error) {
+      console.error(`Failed to process accounting entries for sale ${saleId}:`, error)
+      throw new BadRequestException(`Failed to update account balance: ${error.message}`)
     }
-
-    // Generate invoice number
-    const invoiceNumber = await this.generateInvoiceNumber()
-
-    const sale = this.salesRepository.create({
-      invoiceNumber,
-      subtotal,
-      discount: createSaleDto.discount,
-      tax: createSaleDto.tax,
-      total,
-      paid: createSaleDto.paid,
-      change,
-      customerName: createSaleDto.customerName,
-      customerPhone: createSaleDto.customerPhone,
-      cashierId,
-      status: SaleStatus.COMPLETED,
-    })
-
-    const savedSale = await this.salesRepository.save(sale)
-
-    // Create sale items
-    for (const item of saleItems) {
-      const saleItem = this.saleItemsRepository.create({
-        ...item,
-        saleId: savedSale.id,
-      })
-      await this.saleItemsRepository.save(saleItem)
-    }
-
-    return this.findOne(savedSale.id)
   }
 
   async findAll(): Promise<Sale[]> {

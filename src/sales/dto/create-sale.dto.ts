@@ -60,4 +60,9 @@ export class CreateSaleDto {
   @IsOptional()
   @IsString()
   customerPhone?: string
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsUUID()
+  accountId?: string
 }

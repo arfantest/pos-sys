@@ -1,6 +1,7 @@
-import { IsNotEmpty, IsOptional, IsString, IsEnum } from "class-validator"
+import { IsNotEmpty, IsOptional, IsString, IsNumber, IsEnum, IsBoolean } from "class-validator"
 import { ApiProperty } from "@nestjs/swagger"
 import { AccountType } from "../entities/account.entity"
+import { Type } from "class-transformer"
 
 export class CreateAccountDto {
   @ApiProperty()
@@ -14,7 +15,6 @@ export class CreateAccountDto {
   name: string
 
   @ApiProperty({ enum: AccountType })
-  @IsNotEmpty()
   @IsEnum(AccountType)
   type: AccountType
 
@@ -22,4 +22,15 @@ export class CreateAccountDto {
   @IsOptional()
   @IsString()
   description?: string
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  balance?: number
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean
 }
