@@ -3,10 +3,10 @@ import { TypeOrmModule } from "@nestjs/typeorm"
 import { ExpensesService } from "./expenses.service"
 import { ExpensesController } from "./expenses.controller"
 import { Expense } from "./entities/expense.entity"
-import { LedgerModule } from "../ledger/ledger.module"
+import { AccountingModule } from "../ledger/accounting.module"
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Expense]), LedgerModule],
+  imports: [TypeOrmModule.forFeature([Expense]), AccountingModule],
   controllers: [ExpensesController],
   providers: [ExpensesService],
   exports: [ExpensesService],

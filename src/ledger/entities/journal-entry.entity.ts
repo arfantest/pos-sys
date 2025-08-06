@@ -4,12 +4,22 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToMany,
   ManyToOne,
   JoinColumn,
+  OneToMany,
 } from "typeorm"
-import { JournalEntryLine } from "./journal-entry-line.entity"
 import { User } from "../../users/entities/user.entity"
+import { JournalEntryLine } from "./journal-entry-line.entity"
+
+export enum TransactionType {
+  SALE = "sale",
+  PURCHASE = "purchase",
+  PAYMENT = "payment",
+  RECEIPT = "receipt",
+  ADJUSTMENT = "adjustment",
+  OPENING_BALANCE = "opening_balance",
+  CLOSING = "closing",
+}
 
 @Entity("journal_entries")
 export class JournalEntry {
@@ -19,31 +29,36 @@ export class JournalEntry {
   @Column({ unique: true })
   entryNumber: string
 
+  @Column({
+    type: "enum",
+    enum: TransactionType,
+  })
+  transactionType: TransactionType
+
   @Column()
   description: string
 
   @Column({ type: "date" })
-  date: Date
+  transactionDate: Date
 
   @Column("decimal", { precision: 15, scale: 2 })
-  totalDebit: number
+  totalAmount: number
 
-  @Column("decimal", { precision: 15, scale: 2 })
-  totalCredit: number
+  @Column({ nullable: true })
+  referenceId: string // Reference to Sale, Purchase, etc.
 
-  @OneToMany(
-    () => JournalEntryLine,
-    (line) => line.journalEntry,
-    { cascade: true },
-  )
+  @Column({ nullable: true })
+  referenceType: string // 'sale', 'purchase', etc.
+
+  @OneToMany(() => JournalEntryLine, (line) => line.journalEntry, { cascade: true })
   lines: JournalEntryLine[]
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: "createdById" })
-  createdBy: User
+  @JoinColumn({ name: "createdBy" })
+  createdByUser: User
 
   @Column()
-  createdById: string
+  createdBy: string
 
   @CreateDateColumn()
   createdAt: Date

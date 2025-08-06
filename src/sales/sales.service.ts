@@ -7,6 +7,7 @@ import { CreateSaleDto } from "./dto/create-sale.dto"
 import { ProductsService } from "../products/products.service"
 import { AccountsService } from "../accounts/accounts.service"
 import { AccountType } from "src/accounts/entities/account.entity"
+import { AccountingService } from "src/ledger/accounting.service"
 
 @Injectable()
 export class SalesService {
@@ -19,14 +20,16 @@ export class SalesService {
 
     private readonly productsService: ProductsService,
     private readonly accountsService: AccountsService,
+    private readonly accountingService: AccountingService,
   ) { }
 
   async create(createSaleDto: CreateSaleDto, cashierId: string): Promise<Sale> {
     try {
       // Validate account if provided
+      let selectedAccount = null
       if (createSaleDto.accountId) {
-        const account = await this.accountsService.findOne(createSaleDto.accountId)
-        if (!account.isActive) {
+        selectedAccount = await this.accountsService.findOne(createSaleDto.accountId)
+        if (!selectedAccount.isActive) {
           throw new BadRequestException("Selected account is not active")
         }
       }
@@ -38,12 +41,10 @@ export class SalesService {
       for (const item of createSaleDto.items) {
         const product = await this.productsService.findOne(item.productId)
 
-        // Check if product is active
         if (!product.isActive) {
           throw new BadRequestException(`Product ${product.name} is not active`)
         }
 
-        // Check stock availability
         if (product.stock < item.quantity) {
           throw new BadRequestException(`Insufficient stock for product ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`)
         }
@@ -98,9 +99,14 @@ export class SalesService {
         await this.productsService.updateStock(item.productId, -item.quantity)
       }
 
-      // Update account balance if account is selected
+      // Create accounting entries
       if (createSaleDto.accountId) {
-        await this.processAccountingEntries(createSaleDto, total, savedSale.id)
+        await this.createSaleAccountingEntries(
+          savedSale,
+          createSaleDto,
+          selectedAccount,
+          cashierId
+        )
       }
 
       return this.findOne(savedSale.id)
@@ -109,63 +115,70 @@ export class SalesService {
       throw error
     }
   }
-  private async processAccountingEntries(
+
+  private async createSaleAccountingEntries(
+    sale: Sale,
     createSaleDto: CreateSaleDto,
-    total: number,
-    saleId: string
+    selectedAccount: any,
+    cashierId: string
   ): Promise<void> {
-    const account = await this.accountsService.findOne(createSaleDto.accountId)
+    // For a typical sale, we need to:
+    // 1. Debit Cash/Bank account (increase asset)
+    // 2. Credit Sales Revenue account (increase income)
+    // 3. Handle change if any
 
-    try {
-      switch (account.type) {
-        case AccountType.ASSET:
-          // Debit Cash/Bank account for the amount paid
-          await this.accountsService.debitAccount(createSaleDto.accountId, createSaleDto.paid)
+    if (selectedAccount.type === AccountType.ASSET) {
+      // This is a cash/bank account - record the sale transaction
+      // You'll need to have a Sales Revenue account set up
+      const salesRevenueAccount = await this.getSalesRevenueAccount()
 
-          // If there's a change, we need to credit back the change amount
-          if (createSaleDto.paid > total) {
-            const change = createSaleDto.paid - total
-            await this.accountsService.creditAccount(createSaleDto.accountId, change)
-          }
-          break
+      await this.accountingService.recordSaleTransaction(
+        sale.id,
+        selectedAccount.id, // Cash account
+        salesRevenueAccount.id, // Sales revenue account
+        sale.total,
+        createSaleDto.paid,
+        cashierId
+      )
+    } else if (selectedAccount.type === AccountType.INCOME) {
+      // This is a revenue account - we still need a cash account
+      const cashAccount = await this.getDefaultCashAccount()
 
-        case AccountType.INCOME:
-          // Credit Sales Revenue account for the total sale amount
-          await this.accountsService.creditAccount(createSaleDto.accountId, total)
-          break
-
-        case AccountType.EXPENSE:
-          // Debit Cost of Goods Sold account
-          let totalCost = 0
-          for (const item of createSaleDto.items) {
-            const product = await this.productsService.findOne(item.productId)
-            totalCost += (product.cost || 0) * item.quantity
-          }
-          await this.accountsService.debitAccount(createSaleDto.accountId, totalCost)
-          break
-
-        case AccountType.LIABILITY:
-          // Credit Customer Accounts Payable or similar
-          await this.accountsService.creditAccount(createSaleDto.accountId, total)
-          break
-
-        case AccountType.EQUITY:
-          // Credit Owner's Equity with net profit
-          const netProfit = total - createSaleDto.discount - createSaleDto.tax
-          await this.accountsService.creditAccount(createSaleDto.accountId, netProfit)
-          break
-
-        default:
-          throw new BadRequestException(`Account type ${account.type} is not supported for sales transactions`)
-      }
-
-      console.log(`Accounting entry processed for sale ${saleId}: ${account.type} account ${account.name} updated`)
-
-    } catch (error) {
-      console.error(`Failed to process accounting entries for sale ${saleId}:`, error)
-      throw new BadRequestException(`Failed to update account balance: ${error.message}`)
+      await this.accountingService.recordSaleTransaction(
+        sale.id,
+        cashAccount.id, // Cash account
+        selectedAccount.id, // Sales revenue account
+        sale.total,
+        createSaleDto.paid,
+        cashierId
+      )
     }
   }
+
+  private async getSalesRevenueAccount(): Promise<any> {
+    // Get or create a default sales revenue account
+    const accounts = await this.accountsService.getAccountsByType(AccountType.INCOME)
+    const salesAccount = accounts.find(acc => acc.name.toLowerCase().includes('sales'))
+
+    if (!salesAccount) {
+      throw new BadRequestException('No sales revenue account found. Please create one first.')
+    }
+
+    return salesAccount
+  }
+
+  private async getDefaultCashAccount(): Promise<any> {
+    // Get or create a default cash account
+    const accounts = await this.accountsService.getAccountsByType(AccountType.ASSET)
+    const cashAccount = accounts.find(acc => acc.name.toLowerCase().includes('cash'))
+
+    if (!cashAccount) {
+      throw new BadRequestException('No cash account found. Please create one first.')
+    }
+
+    return cashAccount
+  }
+
 
   async findAll(): Promise<Sale[]> {
     return this.salesRepository.find({

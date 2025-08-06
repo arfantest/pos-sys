@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common"
 import { type Repository, Between } from "typeorm"
 import { Expense } from "./entities/expense.entity"
 import { CreateExpenseDto } from "./dto/create-expense.dto"
-import { LedgerService } from "../ledger/ledger.service"
+import { AccountingService } from "../ledger/accounting.service"
 import { InjectRepository } from "@nestjs/typeorm"
 
 @Injectable()
@@ -10,7 +10,7 @@ export class ExpensesService {
   constructor(
     @InjectRepository(Expense)
     private expensesRepository: Repository<Expense>,
-    private ledgerService: LedgerService,
+    private ledgerService: AccountingService,
   ) {}
 
   async create(createExpenseDto: CreateExpenseDto, createdById: string): Promise<Expense> {
@@ -105,7 +105,7 @@ export class ExpensesService {
       ],
     }
 
-    // Note: You'll need to implement this method in LedgerService
+    // Note: You'll need to implement this method in AccountingService
     // await this.ledgerService.createJournalEntry(journalEntryData, expense.createdById)
   }
 }

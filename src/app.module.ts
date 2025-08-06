@@ -10,7 +10,7 @@ import { ProductsModule } from './products/products.module';
 import { SalesModule } from './sales/sales.module';
 import { PurchasesModule } from './purchases/purchases.module';
 import { AccountsModule } from './accounts/accounts.module';
-import { LedgerModule } from './ledger/ledger.module';
+import { AccountingModule } from './ledger/accounting.module';
 import { ReportsModule } from './reports/reports.module';
 import { SettingsModule } from './settings/settings.module';
 import { SeedModule } from './database/seeds/seed.module';
@@ -41,7 +41,7 @@ import { ExpensesModule } from './expenses/expenses.module';
     SalesModule,
     PurchasesModule,
     AccountsModule,
-    LedgerModule,
+    AccountingModule,
     ReportsModule,
     SettingsModule,
     ExpensesModule,

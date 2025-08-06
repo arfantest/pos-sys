@@ -10,9 +10,10 @@ import { SaleReturn } from "./entities/sale-return.entity"
 import { SaleReturnItem } from "./entities/sale-return-item.entity"
 import { ProductsModule } from "../products/products.module"
 import { AccountsModule } from "src/accounts/accounts.module"
+import { AccountingModule } from "src/ledger/accounting.module"
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Sale, SaleItem, SaleReturn, SaleReturnItem]), ProductsModule,AccountsModule],
+  imports: [TypeOrmModule.forFeature([Sale, SaleItem, SaleReturn, SaleReturnItem]), ProductsModule,AccountsModule,AccountingModule],
   controllers: [SalesController, SaleReturnsController],
   providers: [SalesService, SaleReturnsService],
   exports: [SalesService, SaleReturnsService],
